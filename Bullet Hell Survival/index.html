@@ -1,0 +1,2753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Two Player Shooter</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: black;
+        }
+        .player {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+        }
+        .health-bar {
+            position: absolute;
+            height: 4px;
+            background: #333;
+            border-radius: 2px;
+            transform: translateY(-10px);
+        }
+        .health-fill {
+            height: 100%;
+            background: #2ecc71;
+            border-radius: 2px;
+            transition: width 0.2s ease;
+        }
+        .power-up-option[data-type="revive"] {
+            background: linear-gradient(45deg, #ff6b6b, #ffd93d);
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .enemy .health-bar {
+            width: 20px;
+            transform: translate(-2.5px, -8px);
+        }
+        .player .health-bar {
+            width: 30px;
+            transform: translate(-5px, -10px);
+        }
+        #player1 {
+            background: #ff4444;
+        }
+        #player2 {
+            background: #4444ff;
+        }
+        .range-indicator {
+            position: absolute;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .bullet {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: yellow;
+            border-radius: 50%;
+        }
+        .enemy {
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            background: #44ff44;
+            border-radius: 50%;
+        }
+        .xp-orb {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #9b59b6;
+            border-radius: 50%;
+            pointer-events: none;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        #hud {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 10px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+        #xp-container {
+            flex-grow: 1;
+            height: 20px;
+            background: #333;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        #xp-bar {
+            width: 0%;
+            height: 100%;
+            background: #9b59b6;
+            transition: width 0.3s ease;
+        }
+        #level, #score {
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        .game-over-menu {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 40px;
+            border-radius: 10px;
+            text-align: center;
+            color: white;
+        z-index: 3000;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .power-up-menu {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr; /* Changed to show 3 options */
+            gap: 20px;
+            padding: 20px;
+            background: #2c3e50;
+            border-radius: 10px;
+            max-width: 1000px;
+        }
+        
+        .revival-progress {
+            position: absolute;
+            width: 40px;
+            height: 4px;
+            background: #333;
+            border-radius: 2px;
+            bottom: -15px;
+            left: -10px;
+        }
+
+        .revival-fill {
+            height: 100%;
+            width: 0%;
+            background: #2ecc71;
+            border-radius: 2px;
+            transition: width 0.1s linear;
+        }
+
+        .player.dead {
+            background-color: #666666 !important;
+            opacity: 0.7;
+        }
+
+        .power-up-option {
+            background: #34495e;
+            padding: 15px;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s;
+        }
+
+        .power-up-option:hover {
+            background: #3498db;
+            transform: translateY(-2px);
+        }
+
+        .restart-button {
+            background: #2ecc71;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        .shield {
+            position: absolute;
+            border: 2px solid #3498db;
+            border-radius: 50%;
+            pointer-events: none;
+            animation: shieldPulse 2s infinite;
+            opacity: 0.6;
+        }
+
+        .magnet-range {
+            position: absolute;
+            border: 2px dotted #9b59b6;
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0.3;
+        }
+
+        @keyframes shieldPulse {
+            0% { transform: scale(1); border-color: #3498db; }
+            50% { transform: scale(1.1); border-color: #2980b9; }
+            100% { transform: scale(1); border-color: #3498db; }
+        }
+        .boss {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: #ff4400;
+            border-radius: 50%;
+            border: 3px solid #aa0000;
+            animation: pulse 2s infinite;
+        }
+
+        .drop {
+            transition: transform 0.3s ease;
+        }
+
+        .drop:hover {
+            transform: scale(1.2);
+        }
+
+        .explosion {
+            background: rgba(255, 0, 0, 0.3);
+            pointer-events: none;
+        }
+        
+        .drop.red { /* Explosion Drop */
+            background-color: red;
+        }
+
+        .drop.green { /* Health Restore Drop */
+            background-color: green;
+        }
+
+        .drop.blue { /* Shield Drop */
+            background-color: blue;
+        }
+
+        .drop.yellow { /* Speed Boost Drop */
+            background-color: yellow;
+        }
+
+        .drop.gold { /* Double XP Drop */
+            background-color: gold;
+        }
+
+        .drop.orange { /* Fire Aura Drop */
+            background-color: orange;
+        }
+
+        .drop.lightblue { /* Time Slow Drop */
+            background-color: lightblue;
+        }
+
+        .shield {
+            border: 2px solid #3498db; /* Shield color */
+            animation: pulse 2s infinite;
+            pointer-events: none;
+        }
+
+        .fire-aura {
+            border: 2px solid #ff4500;
+            background: rgba(255, 69, 0, 0.3);
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            transition: left 0.1s linear, top 0.1s linear; /* Smooth movement */
+        }
+
+
+        .boss-laser {
+            position: absolute;
+            background: linear-gradient(to right, #ff4400, #ff000066);
+            height: 4px;
+            transform-origin: left center;
+        }
+        .boss .health-bar {
+            width: 100px;  /* Wider than regular enemy health bars */
+            transform: translate(-25px, -20px);  /* Position above boss */
+        }
+        .crazy-mode {
+            animation: crazyPulse 0.5s infinite;
+        }
+
+        .crazy-mode-active {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: 9999;
+            animation: crazyBackground 10s linear;
+        }
+
+        @keyframes crazyPulse {
+            0% { transform: scale(1); filter: hue-rotate(0deg); }
+            25% { transform: scale(1.1); filter: hue-rotate(90deg); }
+            50% { transform: scale(1); filter: hue-rotate(180deg); }
+            75% { transform: scale(1.1); filter: hue-rotate(270deg); }
+            100% { transform: scale(1); filter: hue-rotate(360deg); }
+        }
+
+        @keyframes crazyBackground {
+            0% { background: rgba(255, 0, 0, 0.1); }
+            20% { background: rgba(255, 165, 0, 0.1); }
+            40% { background: rgba(255, 255, 0, 0.1); }
+            60% { background: rgba(0, 255, 0, 0.1); }
+            80% { background: rgba(0, 0, 255, 0.1); }
+            100% { background: rgba(255, 0, 255, 0.1); }
+        }
+        .power-up-option.crazy-mode {
+            background: linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #8f00ff);
+            background-size: 400% 400%;
+            animation: gradientShift 3s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .crazy-mode h3 {
+            font-size: 1.5em;
+            text-shadow: 0 0 10px #fff;
+            animation: textGlow 1s ease infinite;
+        }
+
+        @keyframes textGlow {
+            0% { text-shadow: 0 0 10px #fff; }
+            50% { text-shadow: 0 0 20px #fff, 0 0 30px #ff0; }
+            100% { text-shadow: 0 0 10px #fff; }
+        }
+        .mega-boss {
+            position: absolute;
+            width: 70px;
+            height: 70px;
+            background: #8e44ad;
+            border-radius: 10px;
+            border: 3px solid #6c3483;
+            animation: megaBossPulse 2s infinite;
+        }
+
+        @keyframes megaBossPulse {
+            0% { transform: scale(1); filter: hue-rotate(0deg); }
+            50% { transform: scale(1.1); filter: hue-rotate(180deg); }
+            100% { transform: scale(1); filter: hue-rotate(360deg); }
+        }
+
+        .wave-attack {
+            position: absolute;
+            border: 4px solid #8e44ad;
+            border-radius: 50%;
+            animation: waveExpand 2s linear;
+        }
+
+        @keyframes waveExpand {
+            0% { transform: scale(0); opacity: 0.8; }
+            100% { transform: scale(20); opacity: 0; }
+        }
+
+        .bullet-ring {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #8e44ad;
+            border-radius: 50%;
+        }
+        .mega-boss .health-bar {
+            width: 140px;  /* Twice the size of regular boss health bar */
+            transform: translate(-35px, -30px);  /* Position above mega boss */
+            height: 6px;  /* Slightly thicker than regular health bars */
+        }
+
+        .mega-boss .health-fill {
+            background: #8e44ad;  /* Purple to match mega boss color */
+        }
+        .turret {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: #e67e22;
+            border-radius: 4px;
+            transform: rotate(45deg);
+        }
+
+        .turret::after {
+            content: '';
+            position: absolute;
+            width: 10px;
+            height: 4px;
+            background: #d35400;
+            top: 6px;
+            left: 16px;
+            border-radius: 2px;
+        }
+        
+        .drop.purple {
+            background-color: purple;
+        }
+
+        .turret-timer {
+            position: absolute;
+            width: 30px;
+            height: 3px;
+            background: #444;
+            border-radius: 1.5px;
+            bottom: -8px;
+            left: -7px;
+        }
+
+        .turret-timer-fill {
+            height: 100%;
+            background: #e67e22;
+            border-radius: 1.5px;
+            transition: width 0.1s linear;
+        }
+
+        .turret-range {
+            position: absolute;
+            border: 1px solid rgba(230, 126, 34, 0.2);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .stats-overlay {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            color: white;
+            font-family: Arial, sans-serif;
+            z-index: 2000;
+            min-width: 300px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .player-stats {
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+
+        .player-stats h2 {
+            margin: 0 0 10px 0;
+            color: #3498db;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            padding: 3px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-name {
+            color: #bdc3c7;
+        }
+
+        .stat-value {
+            color: #2ecc71;
+        }
+
+        .ability-active {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        .spawn-info {
+            position: fixed;
+            top: 50px;
+            right: 20px;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: right;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div id="hud">
+        <div id="score">Score: 0</div>
+        <div id="xp-container">
+            <div id="xp-bar"></div>
+        </div>
+        <div id="level">Level: 1</div>
+    </div>
+    <div id="player1" class="player">
+        <div class="health-bar"><div class="health-fill"></div></div>
+    </div>
+    <div class="spawn-info">
+        <div>Spawn Rate: <span id="spawn-rate-display">100%</span></div>
+        <div>Enemies: <span id="enemy-count-display">0</span></div>
+    </div>
+    <div id="player2" class="player">
+        <div class="health-bar"><div class="health-fill"></div></div>
+    </div>
+    <script>
+        // Game Constants
+        const PLAYER_MAX_HEALTH = 100;
+        const ENEMY_MAX_HEALTH = 30;
+        const BULLET_DAMAGE = 10;
+        const MAX_ENEMIES = 700; // Maximum number of enemies allowed on screen
+        const BASE_ENEMY_HEALTH = ENEMY_MAX_HEALTH; // Store the base enemy health
+        const BASE_ENEMY_SPEED = 1; // Store the base enemy speed
+        
+        // XP System Constants
+        let currentLevel = 1;
+        let currentXP = 0;
+        let xpToNextLevel = 100;
+        const XP_SCALING = 1.25;
+        const XP_PER_ORB = 20;
+        
+        // Game State
+        let bullets = [];
+        let enemies = [];
+        let xpOrbs = [];
+        let score = 0;
+        let spawnRate = 1500;
+        let lastSpawn = 0;
+        let gameIsPaused = false;
+        let boss = null;
+        let globalXPMultiplier = 1;
+        let lastBossSpawnScore = 0;
+        let megaBoss = null;
+        let lissActive = false;
+        let xpMultiplier = 1;
+        let statsOverlay = null;
+
+        let currentDrop = null;
+        const DROP_SPAWN_INTERVAL = 30000; // 30 seconds between drops
+        let lastDropSpawn = Date.now(); // Set to current time at the beginning
+
+        
+        function createRangeIndicator() {
+            const range = document.createElement('div');
+            range.className = 'range-indicator';
+            document.body.appendChild(range);
+            return range;
+        }
+
+        const drops = [
+    {
+        id: 'explosion',
+        color: 'red',
+        size: 20,
+        description: 'Creates an outward explosion that kills all enemies within a radius',
+        effectRadius: 150,
+        apply: function(player) {
+            createExplosion(player.x, player.y, this.effectRadius);
+        }
+    },
+    {
+    id: 'collect_all_orbs',
+    color: 'purple',
+    size: 20,
+    description: 'Instantly collects all XP orbs on the screen',
+    apply: function() {
+        xpOrbs.forEach(orb => {
+            if (!orb.collected) {
+                collectOrb(orb); // Use the existing collectOrb function to collect each orb
+            }
+        });
+    }
+},
+
+    {
+        id: 'health_restore',
+        color: 'green',
+        size: 20,
+        description: 'Restores 50% of both players’ health',
+        apply: function() {
+            // Restore health for both players
+            [player1, player2].forEach(player => {
+                if (!player.isDead) {
+                    player.health = Math.min(PLAYER_MAX_HEALTH, player.health + (PLAYER_MAX_HEALTH * 0.5));
+                    updateHealthBar(player);
+                }
+            });
+        }
+    },
+    {
+        id: 'shield',
+        color: 'blue',
+        size: 20,
+        description: 'Provides both players with a temporary shield that absorbs 3 hits',
+        apply: function() {
+            [player1, player2].forEach(player => {
+                if (!player.isDead) {
+                    player.shieldHits = 3; // Set shield hits to 3
+                    if (!player.shieldElement) {
+                        player.shieldElement = document.createElement('div');
+                        player.shieldElement.className = 'shield';
+                        document.body.appendChild(player.shieldElement);
+                    }
+                    player.shieldElement.style.display = 'block';
+                }
+            });
+        }
+    },
+    {
+        id: 'speed_boost',
+        color: 'yellow',
+        size: 20,
+        description: 'Temporarily increases both players’ movement speed by 50% for 10 seconds',
+        apply: function() {
+            [player1, player2].forEach(player => {
+                if (!player.isDead) {
+                    const originalSpeed = player.speed;
+                    player.speed *= 1.5; // Increase speed by 50%
+                    setTimeout(() => {
+                        player.speed = originalSpeed; // Restore original speed after 10 seconds
+                    }, 10000);
+                }
+            });
+        }
+    },
+    {
+        id: 'double_xp',
+        color: 'gold',
+        size: 20,
+        description: 'Doubles XP gained for both players for 15 seconds',
+        apply: function() {
+            xpMultiplier = 2; // Double the XP gain
+            setTimeout(() => {
+                xpMultiplier = 1; // Restore original XP gain after 15 seconds
+            }, 15000);
+        }
+    },
+    {
+        id: 'xp_boost',
+        name: 'XP Boost',
+        description: 'Increase XP orb value by 20% per level',
+        maxLevel: 25,
+        level: 0,
+        apply: function() {
+            // Calculate new global multiplier
+            globalXPMultiplier = 1 + (this.level * 0.2); // 20% increase per level
+        }
+    },
+    {
+    id: 'fire_aura',
+    color: 'orange',
+    size: 20,
+    description: 'Creates a burning aura around both players that damages nearby enemies for 10 seconds',
+    apply: function() {
+        [player1, player2].forEach(player => {
+            if (!player.isDead) {
+                const aura = document.createElement('div');
+                aura.className = 'fire-aura';
+                document.body.appendChild(aura);
+
+                const auraRadius = 80; // Adjust this value to change the size of the fire aura
+
+                // Update the style for the fire-aura element to match the new size
+                aura.style.width = `${auraRadius * 2}px`;
+                aura.style.height = `${auraRadius * 2}px`;
+
+                // Smoothly position the aura using CSS transitions
+                aura.style.transition = 'left 0.1s linear, top 0.1s linear';
+
+                const updateAura = setInterval(() => {
+                    aura.style.left = (player.x - auraRadius) + 'px';
+                    aura.style.top = (player.y - auraRadius) + 'px';
+
+                    // Damage enemies within the radius
+                    enemies.forEach((enemy, index) => {
+                        const dx = enemy.x - player.x;
+                        const dy = enemy.y - player.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+
+                        if (distance < auraRadius) {
+                            enemy.health -= 5; // Deal damage to nearby enemies
+                            updateHealthBar(enemy);
+                            if (enemy.health <= 0) {
+                                enemy.element.remove();
+                                enemies.splice(index, 1);
+                                score += 10;
+                                document.getElementById('score').textContent = 'Score: ' + score;
+                            }
+                        }
+                    });
+                }, 50); // Reduced interval for smoother updates
+
+                setTimeout(() => {
+                    clearInterval(updateAura);
+                    aura.remove();
+                }, 10000); // Remove aura after 10 seconds
+                }
+            });
+        }
+    },
+    {
+        id: 'time_slow',
+        color: 'lightblue',
+        size: 20,
+        description: 'Slows down all enemies by 50% for 10 seconds',
+        apply: function() {
+            enemies.forEach(enemy => {
+                enemy.speed /= 2; // Halve the enemy speed
+            });
+            setTimeout(() => {
+                enemies.forEach(enemy => {
+                    enemy.speed *= 2; // Restore the original speed after 10 seconds
+                });
+            }, 10000);
+        }
+    }
+];
+
+        
+        // Power-up System
+        let availablePowerUps = [
+            {
+                id: 'attack_speed',
+                name: 'Increase Attack Speed',
+                description: 'Reduce attack cooldown by 10%',
+                maxLevel: 50,
+                level: 0,
+                apply: (player) => {
+                    player.attackCooldown = 500 * Math.pow(0.9, availablePowerUps.find(p => p.id === 'attack_speed').level);
+                }
+            },
+            {
+                id: 'attack_damage',
+                name: 'Increase Damage',
+                description: 'Increase bullet damage by 5',
+                maxLevel: 50,
+                level: 0,
+                apply: (player) => {
+                    player.bulletDamage = BULLET_DAMAGE + (5 * availablePowerUps.find(p => p.id === 'attack_damage').level);
+                }
+            },
+            {
+                id: 'move_speed',
+                name: 'Increase Movement Speed',
+                description: 'Increase movement speed by 1%',
+                maxLevel: 10,
+                level: 0,
+                apply: (player) => {
+                    // Starting speed is 2, each level adds 1%
+                    const baseSpeed = 3;
+                    const speedMultiplier = 1 + (availablePowerUps.find(p => p.id === 'move_speed').level * 0.10);
+                    player.speed = baseSpeed * speedMultiplier;
+                }
+            },
+            {
+                id: 'instant_revive',
+                name: 'Instant Revive',
+                description: 'Instantly revive your fallen teammate',
+                maxLevel: 1,
+                level: 0,
+                isRevive: true, // Special flag to identify this as a revive power-up
+                apply: () => {
+                    if (player1.isDead) {
+                        revivePlayer(player1);
+                    }
+                    if (player2.isDead) {
+                        revivePlayer(player2);
+                    }
+                }
+            },
+            {
+            id: 'omnivamp',
+            name: 'Omnivamp',
+            description: 'Restores a percentage of damage dealt to enemies as health',
+            maxLevel: 20, // You can adjust the maximum level as needed
+            level: 0,
+            apply: function(player) {
+                // Base lifesteal percentage of 5% at level 0, increasing by 5% per level
+                player.lifesteal = 0.05 + (this.level * 0.05);
+            }
+        },
+            {
+                id: 'turret',
+                name: 'Deploy Turret',
+                description: 'Automatically deploys turrets that shoot nearby enemies',
+                maxLevel: 20,
+                level: 0,
+                apply: function(player) {
+                    player.hasTurret = true;
+                    player.turretDamage = BULLET_DAMAGE * (1 + this.level * 0.05); // +5% damage per level
+                    player.turretRange = 120 + (this.level * 10); // +10 range per level
+                    player.turretDuration = 5000 + (this.level * 1000); // Base 5s + 1s per level
+                    player.turretCooldown = Math.max(10000, 30000 - (this.level * 1000)); // Base 60s - 1s per level, min 20s
+                    player.turretAttackSpeed = Math.max(300, 1000 - (this.level * 35)); // Attack speed increases with level
+                    player.lastTurretDeploy = 0;
+                    player.activeTurrets = player.activeTurrets || [];
+                }
+            },
+            {
+                id: 'attack_range',
+                name: 'Increase Attack Range',
+                description: 'Increase attack range by 20',
+                maxLevel: 10,
+                level: 0,
+                apply: (player) => {
+                    player.range = 80 + (20 * availablePowerUps.find(p => p.id === 'attack_range').level);
+                }
+            },
+            {
+                id: 'multi_target',
+                name: 'Multi Target',
+                description: 'Attack multiple enemies at once',
+                maxLevel: 25, // Updated maximum level
+                level: 0,
+                apply: function(player) {
+                    player.hasMultiTarget = true;
+                    player.maxTargets = 1 + this.level; // Starts with one target, increases with each level
+                }
+            },
+            {
+                id: 'orbiting_bullet',
+                name: 'Orbital Strike',
+                description: 'Add an orbiting bullet that damages enemies',
+                maxLevel: 40,
+                level: 0,
+                apply: function(player) {
+                    player.hasOrbitalBullet = true;
+                    player.orbitalCount = Math.min(3, this.level); // Maximum of 3 orbitals
+                    player.orbitals = player.orbitals || [];
+                    player.orbitalCooldowns = player.orbitalCooldowns || new Array(3).fill(0);
+                    player.orbitalSpeed = 0.03 + (this.level * 0.01); // Base speed plus level-based scaling
+                    player.orbitalDamageMultiplier = 0.5 + (this.level * 0.05); // Base damage multiplier scaling with level
+                    player.orbitalCooldownTime = Math.max(5000, 20000 - (this.level * 500)); // Cooldown decreases with level
+                }
+            },
+            {
+                id: 'shield',
+                name: 'Energy Shield',
+                description: 'Add protective shield that blocks hits',
+                maxLevel: 5,
+                level: 0,
+                apply: (player) => {
+                    player.shieldHits = availablePowerUps.find(p => p.id === 'shield').level * 2;
+                    player.maxShieldHits = player.shieldHits;
+        
+                    if (!player.shieldElement) {
+                        player.shieldElement = document.createElement('div');
+                        player.shieldElement.className = 'shield';
+                        document.body.appendChild(player.shieldElement);
+                    }
+        
+                    const shieldSize = 40;
+                    player.shieldElement.style.width = shieldSize + 'px';
+                    player.shieldElement.style.height = shieldSize + 'px';
+                }
+            },
+            {
+                id: 'liss_crazy_mode',
+                name: 'LISS CRAZY MODE!!!',
+                description: '🌈 MAXIMUM POWER FOR 10 SECONDS! 🌈',
+                maxLevel: 1,
+                level: 0,
+                rarity: 0.1,
+                apply: (player) => {
+                    lissActive = true;  // Set active flag
+
+                    // Store original stats
+                    const originalStats = {
+                        speed: player.speed,
+                        attackCooldown: player.attackCooldown,
+                        bulletDamage: player.bulletDamage,
+                        range: player.range,
+                        hasOrbitalBullet: player.hasOrbitalBullet,
+                        orbitalCount: player.orbitalCount,
+                        hasMultiTarget: player.hasMultiTarget,
+                        maxTargets: player.maxTargets,
+                        bulletPhase: player.bulletPhase,
+                        extraShots: player.extraShots,
+                        shieldHits: player.shieldHits,
+                        magnetRange: player.magnetRange
+                    };
+
+                    // Apply max stats
+                    player.speed = 10;
+                    player.attackCooldown = 100;
+                    player.bulletDamage = BULLET_DAMAGE * 25;
+                    player.range = 200;
+                    player.hasOrbitalBullet = true;
+                    player.orbitalCount = 6;
+                    player.hasMultiTarget = true;
+                    player.maxTargets = 10;
+                    player.bulletPhase = 5;
+                    player.extraShots = 10;
+                    player.shieldHits = 10;
+                    player.magnetRange = 200;
+
+                    // Visual effects
+                    player.element.classList.add('crazy-mode');
+                    const overlay = document.createElement('div');
+                    overlay.className = 'crazy-mode-active';
+                    document.body.appendChild(overlay);
+
+                    // Reset after 10 seconds
+                    setTimeout(() => {
+                        // Restore original stats
+                        Object.assign(player, originalStats);
+            
+                        // Remove visual effects
+                        player.element.classList.remove('crazy-mode');
+                        overlay.remove();
+                    }, 10000);
+                }
+            },
+            {
+                id: 'magnet',
+                name: 'XP Magnet',
+                description: 'Attract XP orbs from further away',
+                maxLevel: 10,
+                level: 0,
+                apply: (player) => {
+                    player.magnetRange = 50 + (availablePowerUps.find(p => p.id === 'magnet').level * 30);
+        
+                    if (!player.magnetElement) {
+                        player.magnetElement = document.createElement('div');
+                        player.magnetElement.className = 'magnet-range';
+                        document.body.appendChild(player.magnetElement);
+                    }
+                }
+            },
+            {
+                id: 'healing_field',
+                name: 'Healing Field',
+                description: 'Improve healing zones',
+                maxLevel: 50,
+                level: 0,
+                apply: function(player) {  // Changed to function to use 'this'
+                    player.hasHealingField = true;
+                    player.healingFieldSize = 60 + (this.level * 20);
+                    player.healingFieldDuration = 5000 + (this.level * 2000);
+                    player.healingFieldCooldown = 10000 - (this.level * 2000);
+                }
+            },
+            {
+                id: 'phase_shot',
+                name: 'Phase Shot',
+                description: 'Bullets pass through enemies',
+                maxLevel: 10,
+                level: 0,
+                apply: () => {
+                    // Apply the phase level to both players
+                    player1.bulletPhase = availablePowerUps.find(p => p.id === 'phase_shot').level;
+                    player2.bulletPhase = availablePowerUps.find(p => p.id === 'phase_shot').level;
+                }
+            },
+            {
+                id: 'double_shot',
+                name: 'Multi Shot',
+                description: 'Add another shot at a spread angle',
+                maxLevel: 50,
+                level: 0,
+                apply: function(player) {
+                    player.extraShots = this.level;
+                }
+            }
+        ];
+        
+        const player1 = {
+            element: document.getElementById('player1'),
+            healthBar: document.querySelector('#player1 .health-fill'),
+            rangeIndicator: createRangeIndicator(),
+            x: window.innerWidth / 2 - 100,
+            y: window.innerHeight / 2,
+            speed: 3,
+            lastShot: 0,
+            attackCooldown: 500,
+            bulletDamage: BULLET_DAMAGE,
+            range: 80,
+            health: PLAYER_MAX_HEALTH,
+            hasOrbitalBullet: false,
+            hasHealingField: false,
+            hasDoubleShot: false,
+            orbitals: [],
+            multiShotLevel: 0,
+            isDead: false,
+            revivalProgress: 0,
+            revivalElement: null
+        };
+        
+        const player2 = {
+            element: document.getElementById('player2'),
+            healthBar: document.querySelector('#player2 .health-fill'),
+            rangeIndicator: createRangeIndicator(),
+            x: window.innerWidth / 2 + 100,
+            y: window.innerHeight / 2,
+            speed: 3,
+            lastShot: 0,
+            attackCooldown: 500,
+            bulletDamage: BULLET_DAMAGE,
+            range: 80,
+            health: PLAYER_MAX_HEALTH,
+            hasOrbitalBullet: false,
+            hasHealingField: false,
+            hasDoubleShot: false,
+            orbitals: [],
+            multiShotLevel: 0,
+            isDead: false,
+            revivalProgress: 0,
+            revivalElement: null
+        };
+        </script>
+<script>
+    function updateXPDisplay() {
+        const xpBar = document.getElementById('xp-bar');
+        const levelText = document.getElementById('level');
+        const percentage = (currentXP / xpToNextLevel) * 100;
+        xpBar.style.width = `${percentage}%`;
+        levelText.textContent = `Level: ${currentLevel}`;
+    }
+    
+    function showPowerUpMenu() {
+    gameIsPaused = true;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+
+    const menu = document.createElement('div');
+    menu.className = 'power-up-menu';
+
+    // Check if any player is dead
+    const isAnyPlayerDead = player1.isDead || player2.isDead;
+
+    // Filter power-ups based on situation
+    let availableUpgrades;
+    if (isAnyPlayerDead) {
+        // If a player is dead, always include revive as an option
+        const reviveOption = availablePowerUps.find(p => p.id === 'instant_revive');
+        const otherUpgrades = availablePowerUps
+            .filter(powerUp => 
+                powerUp.id !== 'instant_revive' && 
+                powerUp.id !== 'liss_crazy_mode' && 
+                powerUp.level < powerUp.maxLevel
+            )
+            .sort(() => Math.random() - 0.5)
+            .slice(0, 2);
+        availableUpgrades = [reviveOption, ...otherUpgrades];
+    } else {
+        // Normal power-up selection when no one is dead
+        const showCrazyMode = Math.random() < 0.1;
+        if (showCrazyMode) {
+            const crazyMode = availablePowerUps.find(p => p.id === 'liss_crazy_mode');
+            const otherUpgrades = availablePowerUps
+                .filter(powerUp => 
+                    powerUp.id !== 'liss_crazy_mode' && 
+                    powerUp.id !== 'instant_revive' && 
+                    powerUp.level < powerUp.maxLevel
+                )
+                .sort(() => Math.random() - 0.5)
+                .slice(0, 2);
+            availableUpgrades = [crazyMode, ...otherUpgrades];
+        } else {
+            availableUpgrades = availablePowerUps
+                .filter(powerUp => 
+                    powerUp.id !== 'instant_revive' && 
+                    powerUp.level < powerUp.maxLevel
+                )
+                .sort(() => Math.random() - 0.5)
+                .slice(0, 3);
+        }
+    }
+
+    availableUpgrades.forEach(powerUp => {
+        const option = document.createElement('div');
+        option.className = 'power-up-option';
+        
+        // Special styling for different power-ups
+        if (powerUp.id === 'liss_crazy_mode') {
+            option.style.background = 'linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #8f00ff)';
+            option.style.animation = 'crazyPulse 2s infinite';
+        } else if (powerUp.id === 'instant_revive') {
+            option.style.background = 'linear-gradient(45deg, #ff6b6b, #ffd93d)';
+            option.style.animation = 'pulse 1s infinite';
+        }
+
+        option.innerHTML = `
+            <h3>${powerUp.name}</h3>
+            <p>${powerUp.description}</p>
+            ${powerUp.level > 0 ? `<p>Current Level: ${powerUp.level}</p>` : ''}
+        `;
+
+        option.onclick = () => {
+            powerUp.level++;
+            powerUp.apply(player1);
+            powerUp.apply(player2);
+            overlay.remove();
+            gameIsPaused = false;
+        };
+
+        menu.appendChild(option);
+    });
+
+    overlay.appendChild(menu);
+    document.body.appendChild(overlay);
+}
+    
+    function levelUp() {
+        currentLevel++;
+        currentXP = 0;
+        xpToNextLevel *= XP_SCALING;
+        updateXPDisplay();
+        showPowerUpMenu();
+    }
+    
+    function createXPOrb(x, y) {
+        const orb = document.createElement('div');
+        orb.className = 'xp-orb';
+        orb.style.left = x + 'px';
+        orb.style.top = y + 'px';
+        document.body.appendChild(orb);
+    
+        const newOrb = {
+            element: orb,
+            x: x,
+            y: y,
+            createdAt: Date.now(),
+            collected: false
+        };
+    
+        setTimeout(() => {
+            if (!newOrb.collected) {
+                orb.remove();
+                xpOrbs = xpOrbs.filter(o => o !== newOrb);
+            }
+        }, 20000);
+    
+        return newOrb;
+    }
+    
+    function updatePosition(player) {
+        player.element.style.left = player.x + 'px';
+        player.element.style.top = player.y + 'px';
+    
+        player.rangeIndicator.style.left = (player.x - player.range + 10) + 'px';
+        player.rangeIndicator.style.top = (player.y - player.range + 10) + 'px';
+        player.rangeIndicator.style.width = (player.range * 2) + 'px';
+        player.rangeIndicator.style.height = (player.range * 2) + 'px';
+    }
+    
+    function findClosestEnemies(player) {
+    let targets = [];
+    let enemiesInRange = [];
+
+    // First, find all enemies in range
+    enemies.forEach(enemy => {
+        const dx = enemy.x - player.x;
+        const dy = enemy.y - player.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < player.range) {
+            enemiesInRange.push({ enemy, distance });
+        }
+    });
+
+    // Add boss to potential targets if it exists
+    if (boss) {
+        const dx = boss.x - player.x;
+        const dy = boss.y - player.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < player.range) {
+            enemiesInRange.push({ enemy: boss, distance });
+        }
+    }
+
+    // Sort by distance
+    enemiesInRange.sort((a, b) => a.distance - b.distance);
+
+    // Get closest enemy
+    if (enemiesInRange.length > 0) {
+        targets.push(enemiesInRange[0].enemy);
+    }
+
+    // If player has multi-target and there's another enemy in range
+    if (player.hasMultiTarget && enemiesInRange.length > 1) {
+        targets.push(enemiesInRange[1].enemy);
+    }
+
+    return targets;
+}
+    
+    function createBullet(startX, startY, targetX, targetY, damage, playerNumber) {
+        const bullet = document.createElement('div');
+        bullet.className = 'bullet';
+        bullet.style.left = startX + 'px';
+        bullet.style.top = startY + 'px';
+        document.body.appendChild(bullet);
+    
+        const dx = targetX - startX;
+        const dy = targetY - startY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const normalizedDx = dx / distance;
+        const normalizedDy = dy / distance;
+    
+        return {
+            element: bullet,
+            x: startX,
+            y: startY,
+            speed: 7,
+            dx: normalizedDx,
+            dy: normalizedDy,
+            damage: damage,
+            fromPlayer: playerNumber,
+            enemiesHit: 0
+        };
+    }
+    
+    function createEnemy() {
+    const enemyDiv = document.createElement('div');
+    enemyDiv.className = 'enemy';
+
+    const healthBar = document.createElement('div');
+    healthBar.className = 'health-bar';
+    const healthFill = document.createElement('div');
+    healthFill.className = 'health-fill';
+    healthBar.appendChild(healthFill);
+    enemyDiv.appendChild(healthBar);
+
+    document.body.appendChild(enemyDiv);
+
+    const spawnSide = Math.floor(Math.random() * 4);
+    let x, y;
+
+    switch (spawnSide) {
+        case 0: // Left side
+            x = 0;
+            y = Math.random() * window.innerHeight;
+            break;
+        case 1: // Right side
+            x = window.innerWidth;
+            y = Math.random() * window.innerHeight;
+            break;
+        case 2: // Top
+            x = Math.random() * window.innerWidth;
+            y = 0;
+            break;
+        case 3: // Bottom
+            x = Math.random() * window.innerWidth;
+            y = window.innerHeight;
+            break;
+    }
+
+    const isOrange = currentLevel >= 10 && Math.random() < 0.5;
+
+    if (isOrange) {
+    const healthScalingFactor = 1 + (currentLevel / 100); // Changed from 50 to 100 for slower scaling
+    const speedScalingFactor = 1 + (currentLevel / 200); // Changed from 100 to 200 for slower scaling
+    
+    enemyDiv.style.backgroundColor = '#ff8c00';
+    return {
+        element: enemyDiv,
+        healthBar: healthFill,
+        x: x,
+        y: y,
+        speed: BASE_ENEMY_SPEED * 1.1 * speedScalingFactor, // Reduced initial speed boost from 1.2 to 1.1
+        health: BASE_ENEMY_HEALTH * 1.3 * healthScalingFactor, // Reduced initial health boost from 1.5 to 1.3
+        maxHealth: BASE_ENEMY_HEALTH * 1.3 * healthScalingFactor,
+        isOrange: true,
+        powered: false
+    };
+} else {
+    enemyDiv.style.backgroundColor = '#44ff44';
+    return {
+        element: enemyDiv,
+        healthBar: healthFill,
+        x: x,
+        y: y,
+        speed: BASE_ENEMY_SPEED,
+        health: BASE_ENEMY_HEALTH,
+        maxHealth: BASE_ENEMY_HEALTH,
+        isOrange: false,
+        powered: false
+        };
+    }
+}
+    </script>
+<script>
+    function shoot(player) {
+        if (player.isDead) return;
+        const now = Date.now();
+        if (now - player.lastShot > player.attackCooldown) {
+            const targets = findClosestEnemies(player);
+            if (targets.length > 0) {
+                const playerNumber = player === player1 ? 1 : 2;
+    
+                targets.forEach(target => {
+                    const baseAngle = Math.atan2(target.y - player.y, target.x - player.x);
+    
+                    bullets.push(createBullet(
+                        player.x + 10,
+                        player.y + 10,
+                        target.x + 7.5,
+                        target.y + 7.5,
+                        player.bulletDamage,
+                        playerNumber
+                    ));
+    
+                    if (player.extraShots > 0) {
+                        const spreadAngle = Math.PI / 12;
+                        const halfShots = Math.floor(player.extraShots / 2);
+    
+                        for (let i = 1; i <= halfShots; i++) {
+                            const leftAngle = baseAngle - (i * spreadAngle);
+                            const rightAngle = baseAngle + (i * spreadAngle);
+    
+                            const leftX = player.x + Math.cos(leftAngle) * 100;
+                            const leftY = player.y + Math.sin(leftAngle) * 100;
+                            bullets.push(createBullet(
+                                player.x + 10,
+                                player.y + 10,
+                                leftX,
+                                leftY,
+                                player.bulletDamage,
+                                playerNumber
+                            ));
+    
+                            const rightX = player.x + Math.cos(rightAngle) * 100;
+                            const rightY = player.y + Math.sin(rightAngle) * 100;
+                            bullets.push(createBullet(
+                                player.x + 10,
+                                player.y + 10,
+                                rightX,
+                                rightY,
+                                player.bulletDamage,
+                                playerNumber
+                            ));
+                        }
+    
+                        if (player.extraShots % 2 !== 0) {
+                            const extraAngle = baseAngle + (halfShots + 1) * spreadAngle;
+                            const extraX = player.x + Math.cos(extraAngle) * 100;
+                            const extraY = player.y + Math.sin(extraAngle) * 100;
+                            bullets.push(createBullet(
+                                player.x + 10,
+                                player.y + 10,
+                                extraX,
+                                extraY,
+                                player.bulletDamage,
+                                playerNumber
+                            ));
+                        }
+                    }
+                });
+    
+                player.lastShot = now;
+            }
+        }
+    }
+    
+    function collectOrb(orb) {
+    if (!orb.collected) {
+        orb.collected = true;
+        orb.element.remove();
+        currentXP += (XP_PER_ORB * globalXPMultiplier * xpMultiplier); // xpMultiplier is for temporary boosts
+        
+        if (currentXP >= xpToNextLevel) {
+            levelUp();
+        } else {
+            updateXPDisplay();
+        }
+    }
+}
+    
+    function checkOrbCollection() {
+        xpOrbs.forEach(orb => {
+            if (orb.collected) return;
+    
+            [player1, player2].forEach(player => {
+                const collectRadius = player.magnetRange || 30;
+                const dx = player.x - orb.x;
+                const dy = player.y - orb.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+    
+                if (distance < collectRadius) {
+                    if (distance < 30) {
+                        collectOrb(orb);
+                    } else {
+                        const speed = 5;
+                        const angle = Math.atan2(dy, dx);
+                        orb.x += Math.cos(angle) * speed;
+                        orb.y += Math.sin(angle) * speed;
+                        orb.element.style.left = orb.x + 'px';
+                        orb.element.style.top = orb.y + 'px';
+                    }
+                }
+            });
+        });
+    }
+    
+    function updateHealthBar(entity) {
+        const maxHealth = entity.maxHealth || PLAYER_MAX_HEALTH;
+        entity.healthBar.style.width = `${(entity.health / maxHealth) * 100}%`;
+    
+        const healthPercent = entity.health / maxHealth;
+        if (healthPercent > 0.6) {
+            entity.healthBar.style.background = '#2ecc71';
+        } else if (healthPercent > 0.3) {
+            entity.healthBar.style.background = '#f1c40f';
+        } else {
+            entity.healthBar.style.background = '#e74c3c';
+        }
+    }
+    
+    function damagePlayer(player, amount) {
+    if (player.isDead) return;
+
+    if (player.shieldHits > 0) {
+        player.shieldHits--;
+
+        // Create shield element if it doesn't exist (for Liss Mode)
+        if (!player.shieldElement) {
+            player.shieldElement = document.createElement('div');
+            player.shieldElement.className = 'shield';
+            document.body.appendChild(player.shieldElement);
+            
+            // Position the shield
+            const shieldSize = 40;
+            player.shieldElement.style.width = shieldSize + 'px';
+            player.shieldElement.style.height = shieldSize + 'px';
+        }
+
+        player.shieldElement.style.borderColor = '#e74c3c';
+        setTimeout(() => {
+            if (player.shieldElement) {  // Check if shield still exists
+                player.shieldElement.style.borderColor = '#3498db';
+            }
+        }, 100);
+
+        if (player.shieldHits <= 0) {
+            player.shieldElement.style.display = 'none';
+        }
+
+        return;
+    }
+    
+        player.health = Math.max(0, player.health - amount);
+        updateHealthBar(player);
+    
+        if (player.health <= 0) {
+            player.isDead = true;
+            player.element.classList.add('dead');
+    
+            const revivalBar = document.createElement('div');
+            revivalBar.className = 'revival-progress';
+            const revivalFill = document.createElement('div');
+            revivalFill.className = 'revival-fill';
+            revivalBar.appendChild(revivalFill);
+            player.element.appendChild(revivalBar);
+            player.revivalElement = revivalFill;
+    
+            if (player1.isDead && player2.isDead) {
+                showGameOver();
+            }
+        }
+    }
+    
+    function revivePlayer(player) {
+        player.isDead = false;
+        player.health = PLAYER_MAX_HEALTH / 2;
+        player.element.classList.remove('dead');
+        player.revivalProgress = 0;
+        if (player.revivalElement) {
+            player.revivalElement.style.width = '0%';
+            player.revivalElement.parentElement.remove();
+            player.revivalElement = null;
+        }
+        updateHealthBar(player);
+    }
+
+    function createTurret(player, x, y) {
+    const turret = document.createElement('div');
+    turret.className = 'turret';
+    
+    // Create turret timer
+    const timer = document.createElement('div');
+    timer.className = 'turret-timer';
+    const timerFill = document.createElement('div');
+    timerFill.className = 'turret-timer-fill';
+    timer.appendChild(timerFill);
+    turret.appendChild(timer);
+
+    // Create range indicator
+    const rangeIndicator = document.createElement('div');
+    rangeIndicator.className = 'turret-range';
+    
+    document.body.appendChild(turret);
+    document.body.appendChild(rangeIndicator);
+
+    const newTurret = {
+        element: turret,
+        rangeIndicator: rangeIndicator,
+        timerFill: timerFill,
+        x: x,
+        y: y,
+        lastShot: 0,
+        createdAt: Date.now(),
+        duration: player.turretDuration,
+        range: player.turretRange,
+        damage: player.turretDamage,
+        attackSpeed: player.turretAttackSpeed
+    };
+
+    // Position turret and range indicator
+    turret.style.left = x + 'px';
+    turret.style.top = y + 'px';
+    updateTurretRangeIndicator(newTurret);
+
+    // Remove turret after duration
+    setTimeout(() => {
+        if (player.activeTurrets.includes(newTurret)) {
+            const index = player.activeTurrets.indexOf(newTurret);
+            if (index > -1) {
+                player.activeTurrets.splice(index, 1);
+            }
+            newTurret.element.remove();
+            newTurret.rangeIndicator.remove();
+        }
+    }, player.turretDuration);
+
+    return newTurret;
+}
+
+function updateTurretRangeIndicator(turret) {
+    turret.rangeIndicator.style.left = (turret.x - turret.range + 8) + 'px';
+    turret.rangeIndicator.style.top = (turret.y - turret.range + 8) + 'px';
+    turret.rangeIndicator.style.width = (turret.range * 2) + 'px';
+    turret.rangeIndicator.style.height = (turret.range * 2) + 'px';
+}
+
+function updateTurrets(player) {
+    if (!player.hasTurret) return;
+
+    const now = Date.now();
+
+    // Deploy new turret if cooldown is over
+    if (now - player.lastTurretDeploy > player.turretCooldown) {
+        const newTurret = createTurret(player, player.x, player.y);
+        player.activeTurrets.push(newTurret);
+        player.lastTurretDeploy = now;
+    }
+
+    // Update existing turrets
+    player.activeTurrets.forEach(turret => {
+        // Update timer bar
+        const elapsed = now - turret.createdAt;
+        const remainingPercentage = Math.max(0, (turret.duration - elapsed) / turret.duration * 100);
+        turret.timerFill.style.width = remainingPercentage + '%';
+
+        // Find and shoot at nearest target (enemy or boss)
+        let nearestTarget = null;
+        let nearestDistance = turret.range;
+
+        // Check regular enemies
+        enemies.forEach(enemy => {
+            const dx = enemy.x - turret.x;
+            const dy = enemy.y - turret.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < nearestDistance) {
+                nearestTarget = enemy;
+                nearestDistance = distance;
+            }
+        });
+
+        // Check boss
+        if (boss) {
+            const dx = boss.x - turret.x;
+            const dy = boss.y - turret.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < nearestDistance) {
+                nearestTarget = boss;
+                nearestDistance = distance;
+            }
+        }
+
+        // Check mega boss
+        if (megaBoss) {
+            const dx = megaBoss.x - turret.x;
+            const dy = megaBoss.y - turret.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < nearestDistance) {
+                nearestTarget = megaBoss;
+                nearestDistance = distance;
+            }
+        }
+
+        if (nearestTarget && now - turret.lastShot > turret.attackSpeed) {
+            // Calculate angle to target for turret rotation
+            const angle = Math.atan2(
+                nearestTarget.y - turret.y,
+                nearestTarget.x - turret.x
+            );
+            turret.element.style.transform = `rotate(${angle}rad)`;
+
+            // Create and fire bullet
+            bullets.push(createBullet(
+                turret.x + 8,
+                turret.y + 8,
+                nearestTarget.x + (nearestTarget === boss || nearestTarget === megaBoss ? 25 : 7.5), // Adjust aim point for larger bosses
+                nearestTarget.y + (nearestTarget === boss || nearestTarget === megaBoss ? 25 : 7.5),
+                turret.damage,
+                player === player1 ? 1 : 2
+            ));
+            turret.lastShot = now;
+        }
+    });
+}
+    
+    function checkRevival() {
+        const reviveDistance = 50;
+        const reviveTime = 10000;
+        const tickRate = 50;
+    
+        if (player2.isDead && !player1.isDead) {
+            const distance = Math.hypot(player2.x - player1.x, player2.y - player1.y);
+            if (distance < reviveDistance) {
+                player2.revivalProgress += tickRate;
+                if (player2.revivalElement) {
+                    player2.revivalElement.style.width = `${(player2.revivalProgress / reviveTime) * 100}%`;
+                }
+                if (player2.revivalProgress >= reviveTime) {
+                    revivePlayer(player2);
+                }
+            } else {
+                player2.revivalProgress = Math.max(0, player2.revivalProgress - tickRate);
+                if (player2.revivalElement) {
+                    player2.revivalElement.style.width = `${(player2.revivalProgress / reviveTime) * 100}%`;
+                }
+            }
+        }
+    
+        if (player1.isDead && !player2.isDead) {
+            const distance = Math.hypot(player2.x - player1.x, player2.y - player1.y);
+            if (distance < reviveDistance) {
+                player1.revivalProgress += tickRate;
+                if (player1.revivalElement) {
+                    player1.revivalElement.style.width = `${(player1.revivalProgress / reviveTime) * 100}%`;
+                }
+                if (player1.revivalProgress >= reviveTime) {
+                    revivePlayer(player1);
+                }
+            } else {
+                player1.revivalProgress = Math.max(0, player1.revivalProgress - tickRate);
+                if (player1.revivalElement) {
+                    player1.revivalElement.style.width = `${(player1.revivalProgress / reviveTime) * 100}%`;
+                }
+            }
+        }
+    }
+    
+    function showGameOver() {
+        gameIsPaused = true;
+    
+        const menu = document.createElement('div');
+        menu.className = 'game-over-menu';
+    
+        menu.innerHTML = `
+            <h1>Game Over!</h1>
+            <p>Score: ${score}</p>
+            <p>Level: ${currentLevel}</p>
+            <button class="restart-button">Play Again</button>
+        `;
+    
+        menu.querySelector('.restart-button').onclick = () => {
+            window.location.reload();
+        };
+    
+        document.body.appendChild(menu);
+    }
+    </script>
+<script>
+    function createBoss() {
+        const bossDiv = document.createElement('div');
+        bossDiv.className = 'boss';
+    
+        const healthBar = document.createElement('div');
+        healthBar.className = 'health-bar';
+        const healthFill = document.createElement('div');
+        healthFill.className = 'health-fill';
+        healthBar.appendChild(healthFill);
+        bossDiv.appendChild(healthBar);
+    
+        document.body.appendChild(bossDiv);
+    
+        const bossLevel = Math.floor(currentLevel / 15);
+        const scoreMultiplier = 1 + (score / 1000);
+    
+        const baseHealth = ENEMY_MAX_HEALTH * 10;
+        const scaledHealth = baseHealth * bossLevel * scoreMultiplier;
+    
+        const baseDamage = 20;
+        const scaledDamage = baseDamage * Math.sqrt(bossLevel * scoreMultiplier);
+    
+        return {
+            element: bossDiv,
+            healthBar: healthFill,
+            x: window.innerWidth / 2,
+            y: window.innerHeight / 2,
+            speed: 0.7 * (1 + (bossLevel * 0.1)),
+            health: score / 2, // Set health equal to the current score
+            maxHealth: score / 2, // Set maxHealth equal to the current score
+            lastSpecialAttack: 0,
+            specialAttackCooldown: Math.max(3000, 5000 - (bossLevel * 500)),
+            laser: null,
+            isCharging: false,
+            chargeTarget: null,
+            damage: scaledDamage,
+            level: bossLevel
+        };
+    }
+    
+    function updateBoss(boss) {
+    if (!boss) return;
+
+    // Basic movement towards closest player
+    const dist1 = player1.isDead ? Infinity : Math.sqrt(
+        Math.pow(player1.x - boss.x, 2) + 
+        Math.pow(player1.y - boss.y, 2)
+    );
+
+    const dist2 = player2.isDead ? Infinity : Math.sqrt(
+        Math.pow(player2.x - boss.x, 2) + 
+        Math.pow(player2.y - boss.y, 2)
+    );
+
+    const closerDist = Math.min(dist1, dist2);
+    const closerPlayer = dist1 < dist2 ? player1 : player2;
+
+    if (closerDist === Infinity) return;
+
+    // Special attack logic
+    const now = Date.now();
+    if (now - boss.lastSpecialAttack > boss.specialAttackCooldown) {
+        if (!boss.isCharging) {
+            // Start charging
+            boss.isCharging = true;
+            boss.chargeTarget = {...closerPlayer};  // Save target position
+            boss.element.style.backgroundColor = '#ff0000';
+            
+            // Create laser charging effect
+            boss.laser = document.createElement('div');
+            boss.laser.className = 'boss-laser';
+            document.body.appendChild(boss.laser);
+            
+            setTimeout(() => {
+                // Fire laser
+                const angle = Math.atan2(
+                    boss.chargeTarget.y - boss.y,
+                    boss.chargeTarget.x - boss.x
+                );
+                
+                const length = Math.sqrt(
+                    Math.pow(window.innerWidth, 2) + 
+                    Math.pow(window.innerHeight, 2)
+                );
+                
+                boss.laser.style.width = `${length}px`;
+                boss.laser.style.left = `${boss.x}px`;
+                boss.laser.style.top = `${boss.y}px`;
+                boss.laser.style.transform = `rotate(${angle}rad)`;
+
+                // Check for player damage
+                [player1, player2].forEach(player => {
+                    if (player.isDead) return;
+                    
+                    const playerAngle = Math.atan2(
+                        player.y - boss.y,
+                        player.x - boss.x
+                    );
+                    
+                    const angleDiff = Math.abs(angle - playerAngle);
+                    if (angleDiff < 0.1) {
+                        damagePlayer(player, boss.damage);
+                    }
+                });
+
+                // Cleanup after laser
+                setTimeout(() => {
+                    if (boss && boss.laser) {  // Check if boss still exists
+                        boss.laser.remove();
+                        boss.laser = null;
+                    }
+                    if (boss) {  // Check if boss still exists
+                        boss.isCharging = false;
+                        boss.element.style.backgroundColor = '#ff4400';
+                        boss.lastSpecialAttack = now;
+                    }
+                }, 1000);
+            }, 2000);
+        }
+    }
+
+    // Regular movement when not charging
+    if (!boss.isCharging) {
+        const angle = Math.atan2(closerPlayer.y - boss.y, closerPlayer.x - boss.x);
+        boss.x += Math.cos(angle) * boss.speed;
+        boss.y += Math.sin(angle) * boss.speed;
+    }
+
+    // Update boss position
+    boss.element.style.left = boss.x + 'px';
+    boss.element.style.top = boss.y + 'px';
+
+    // Check collision with players
+    [player1, player2].forEach(player => {
+        if (!player.isDead) {
+            const dist = Math.sqrt(
+                Math.pow(player.x - boss.x, 2) + 
+                Math.pow(player.y - boss.y, 2)
+            );
+            
+            if (dist < 35) {  // Collision radius for contact damage
+                damagePlayer(player, boss.damage * 0.5);  // Half damage for contact
+            }
+        }
+    });
+}
+
+function createStatsOverlay() {
+    const overlay = document.createElement('div');
+    overlay.className = 'stats-overlay';
+    
+    const grid = document.createElement('div');
+    grid.className = 'stats-grid';
+    
+    grid.appendChild(createPlayerStats(player1, 'Player 1'));
+    grid.appendChild(createPlayerStats(player2, 'Player 2'));
+    
+    overlay.appendChild(grid);
+    return overlay;
+}
+
+function createPlayerStats(player, title) {
+    const statsDiv = document.createElement('div');
+    statsDiv.className = 'player-stats';
+    
+    statsDiv.innerHTML = `
+        <h2>${title}</h2>
+        <div class="stat-item">
+            <span class="stat-name">XP Multiplier:</span>
+            <span class="stat-value">${(globalXPMultiplier * xpMultiplier).toFixed(2)}x</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-name">Health:</span>
+            <span class="stat-value">${Math.round(player.health)} / ${PLAYER_MAX_HEALTH}</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-name">Move Speed:</span>
+            <span class="stat-value">${player.speed.toFixed(2)}</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-name">Attack Damage:</span>
+            <span class="stat-value">${player.bulletDamage}</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-name">Attack Speed:</span>
+            <span class="stat-value">${(1000 / player.attackCooldown).toFixed(2)} shots/sec</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-name">Attack Range:</span>
+            <span class="stat-value">${player.range}</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-name">Phase Shots:</span>
+            <span class="stat-value">${player.bulletPhase || 0}</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-name">Multi Shot Level:</span>
+            <span class="stat-value">${player.extraShots || 0}</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-name">Shield Hits:</span>
+            <span class="stat-value">${player.shieldHits || 0}</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-name">XP Magnet Range:</span>
+            <span class="stat-value">${player.magnetRange || 30}</span>
+        </div>
+        ${player.hasOrbitalBullet ? `
+            <div class="stat-item">
+                <span class="stat-name">Orbital Count:</span>
+                <span class="stat-value">${player.orbitalCount}</span>
+            </div>
+        ` : ''}
+        ${player.hasTurret ? `
+            <div class="stat-item">
+                <span class="stat-name">Turret Damage:</span>
+                <span class="stat-value">${player.turretDamage.toFixed(1)}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-name">Turret Cooldown:</span>
+                <span class="stat-value">${(player.turretCooldown / 1000).toFixed(1)}s</span>
+            </div>
+        ` : ''}
+        <div class="stat-item">
+            <span class="stat-name">Active Abilities:</span>
+            <span class="stat-value">
+                ${player.hasOrbitalBullet ? 'Orbital Strike, ' : ''}
+                ${player.hasTurret ? 'Turrets, ' : ''}
+                ${player.hasHealingField ? 'Healing Field, ' : ''}
+                ${lissActive ? '<span class="ability-active">LISS MODE!</span>' : ''}
+            </span>
+        </div>
+    `;
+    
+    return statsDiv;
+}
+    
+    function updateOrbitalBullet(player) {
+        if (!player.hasOrbitalBullet) return;
+    
+        const now = Date.now();
+        player.orbitals = player.orbitals || [];
+        player.orbitalCooldowns = player.orbitalCooldowns || new Array(3).fill(0);
+    
+        for (let i = 0; i < player.orbitalCount; i++) {
+            if (!player.orbitals[i] && now > player.orbitalCooldowns[i]) {
+                player.orbitals[i] = {
+                    element: document.createElement('div'),
+                    angle: Math.random() * Math.PI * 2,
+                    health: 3
+                };
+                player.orbitals[i].element.className = 'bullet';
+                document.body.appendChild(player.orbitals[i].element);
+            }
+        }
+    
+        player.orbitals.forEach((orbital, index) => {
+            if (!orbital) return;
+    
+            orbital.angle += player.orbitalSpeed;
+    
+            const x = player.x + Math.cos(orbital.angle) * 50;
+            const y = player.y + Math.sin(orbital.angle) * 50;
+    
+            orbital.element.style.left = x + 'px';
+            orbital.element.style.top = y + 'px';
+    
+            enemies.forEach(enemy => {
+                const dx = x - enemy.x;
+                const dy = y - enemy.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+    
+                if (distance < 15) {
+                    enemy.health -= player.bulletDamage * player.orbitalDamageMultiplier;
+                    updateHealthBar(enemy);
+                    orbital.health--;
+    
+                    if (orbital.health <= 0) {
+                        orbital.element.remove();
+                        player.orbitalCooldowns[index] = now + player.orbitalCooldownTime;
+                        player.orbitals[index] = null;
+                    }
+                }
+            });
+        });
+    }
+    
+    let healingFields = [];
+    
+    function createHealingField(x, y) {
+        const field = document.createElement('div');
+        field.className = 'healing-field';
+        field.style.cssText = `
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: 2px solid #2ecc71;
+            background: rgba(46, 204, 113, 0.2);
+            left: ${x - 30}px;
+            top: ${y - 30}px;
+        `;
+        document.body.appendChild(field);
+    
+        const newField = {
+            element: field,
+            x: x,
+            y: y,
+            createdAt: Date.now()
+        };
+    
+        setTimeout(() => {
+            field.remove();
+            healingFields = healingFields.filter(f => f !== newField);
+        }, 5000);
+    
+        return newField;
+    }
+    
+    function updateHealingFields() {
+        const healingRadius = 30;
+        const healAmount = 0.5;
+    
+        healingFields.forEach(field => {
+            [player1, player2].forEach(player => {
+                const dx = player.x - field.x;
+                const dy = player.y - field.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+    
+                if (distance < healingRadius) {
+                    player.health = Math.min(PLAYER_MAX_HEALTH, player.health + healAmount);
+                    updateHealthBar(player);
+                }
+            });
+        });
+    }
+    function showPowerUpMenu() {
+    gameIsPaused = true;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+
+    const menu = document.createElement('div');
+    menu.className = 'power-up-menu';
+
+    // Chance for Liss Crazy Mode to appear (10% chance)
+    const showCrazyMode = Math.random() < 0.1;
+    
+    let availableUpgrades;
+    if (showCrazyMode) {
+        // If crazy mode appears, it's always one of the options
+        const crazyMode = availablePowerUps.find(p => p.id === 'liss_crazy_mode');
+        const otherUpgrades = availablePowerUps
+            .filter(powerUp => powerUp.id !== 'liss_crazy_mode' && powerUp.level < powerUp.maxLevel)
+            .sort(() => Math.random() - 0.5)
+            .slice(0, 2);
+        availableUpgrades = [crazyMode, ...otherUpgrades];
+    } else {
+        // Normal power-up selection
+        availableUpgrades = availablePowerUps
+            .filter(powerUp => powerUp.level < powerUp.maxLevel)
+            .sort(() => Math.random() - 0.5)
+            .slice(0, 3);
+    }
+
+    availableUpgrades.forEach(powerUp => {
+        const option = document.createElement('div');
+        option.className = 'power-up-option';
+        
+        // Special styling for Liss Crazy Mode
+        if (powerUp.id === 'liss_crazy_mode') {
+            option.style.background = 'linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #8f00ff)';
+            option.style.animation = 'crazyPulse 2s infinite';
+        }
+
+        option.innerHTML = `
+            <h3>${powerUp.name}</h3>
+            <p>${powerUp.description}</p>
+            ${powerUp.level > 0 ? `<p>Current Level: ${powerUp.level}</p>` : ''}
+        `;
+
+        option.onclick = () => {
+            powerUp.level++;
+            powerUp.apply(player1);
+            powerUp.apply(player2);
+            overlay.remove();
+            gameIsPaused = false;
+        };
+
+        menu.appendChild(option);
+    });
+
+    overlay.appendChild(menu);
+    document.body.appendChild(overlay);
+}
+    </script>
+<script>
+    const keys = {
+        w: false, s: false, a: false, d: false,
+        ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false
+    };
+    
+    document.addEventListener('keydown', (e) => {
+        if (e.key in keys) {
+            keys[e.key] = true;
+            e.preventDefault();
+        }
+    });
+    
+    document.addEventListener('keyup', (e) => {
+        if (e.key in keys) {
+            keys[e.key] = false;
+            e.preventDefault();
+        }
+    });
+
+    document.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab') {
+        e.preventDefault(); // Prevent Tab from changing focus
+        if (!statsOverlay) {
+            statsOverlay = createStatsOverlay();
+            document.body.appendChild(statsOverlay);
+            gameIsPaused = true;
+        }
+    }
+});
+
+document.addEventListener('keyup', (e) => {
+    if (e.key === 'Tab') {
+        if (statsOverlay) {
+            statsOverlay.remove();
+            statsOverlay = null;
+            gameIsPaused = false;
+        }
+    }
+});
+    
+    // Healing field timer
+    let lastHealingField = 0;
+    function checkHealingFieldSpawn() {
+        const now = Date.now();
+        const cooldown = Math.min(player1.healingFieldCooldown, player2.healingFieldCooldown) || 10000;
+    
+        if (now - lastHealingField > cooldown) {
+            if ([player1, player2].some(p => p.hasHealingField)) {
+                const x = Math.random() * window.innerWidth;
+                const y = Math.random() * window.innerHeight;
+                const size = Math.max(player1.healingFieldSize, player2.healingFieldSize) || 60;
+                const duration = Math.max(player1.healingFieldDuration, player2.healingFieldDuration) || 5000;
+                healingFields.push(createHealingField(x, y, size, duration));
+                lastHealingField = now;
+            }
+        }
+    }
+    function createMegaBoss() {
+    const bossDiv = document.createElement('div');
+    bossDiv.className = 'mega-boss';
+
+    // Create health bar
+    const healthBar = document.createElement('div');
+    healthBar.className = 'health-bar';
+    const healthFill = document.createElement('div');
+    healthFill.className = 'health-fill';
+    healthBar.appendChild(healthFill);
+    bossDiv.appendChild(healthBar);
+
+    document.body.appendChild(bossDiv);
+
+    const bossLevel = Math.floor(currentLevel / 20);
+    const scoreMultiplier = 1 + (score / 1000);
+
+    const baseHealth = ENEMY_MAX_HEALTH * 40;  // Double the regular boss health
+    const scaledHealth = baseHealth * bossLevel * scoreMultiplier;
+
+    const baseDamage = 30;
+    const scaledDamage = baseDamage * Math.sqrt(bossLevel * scoreMultiplier);
+
+    return {
+        element: bossDiv,
+        healthBar: healthFill,
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2,
+        speed: 0.5 * (1 + (bossLevel * 0.1)),
+        health: scaledHealth,
+        maxHealth: scaledHealth,
+        lastAttack: 0,
+        attackCooldown: Math.max(2000, 4000 - (bossLevel * 200)),
+        currentPhase: 0,
+        phaseTimer: 0,
+        bullets: [],
+        damage: scaledDamage,
+        level: bossLevel
+    };
+}
+
+function updateMegaBoss(boss) {
+    if (!boss) return;
+
+    const now = Date.now();
+    const phase = Math.floor((now - boss.phaseTimer) / 10000) % 4; // Change phase every 10 seconds
+
+    if (phase !== boss.currentPhase) {
+        boss.currentPhase = phase;
+        boss.lastAttack = now; // Reset attack timer on phase change
+    }
+
+    // Different attack patterns based on phase
+    switch(boss.currentPhase) {
+        case 0: // Wave attack
+            if (now - boss.lastAttack > boss.attackCooldown) {
+                createWaveAttack(boss);
+                boss.lastAttack = now;
+            }
+            moveTowardsCenter(boss);
+            break;
+
+        case 1: // Bullet ring
+            if (now - boss.lastAttack > boss.attackCooldown) {
+                createBulletRing(boss);
+                boss.lastAttack = now;
+            }
+            moveInCircle(boss);
+            break;
+
+        case 2: // Chase and rapid fire
+            if (now - boss.lastAttack > boss.attackCooldown / 2) {
+                fireBulletAtClosestPlayer(boss);
+                boss.lastAttack = now;
+            }
+            chaseClosestPlayer(boss);
+            break;
+
+        case 3: // Diagonal dash
+            if (now - boss.lastAttack > boss.attackCooldown * 1.5) {
+                diagonalDash(boss);
+                boss.lastAttack = now;
+            }
+            break;
+    }
+
+    // Update boss position
+    boss.element.style.left = boss.x + 'px';
+    boss.element.style.top = boss.y + 'px';
+
+    // Check collision with players
+    [player1, player2].forEach(player => {
+        if (!player.isDead) {
+            const dist = Math.hypot(player.x - boss.x, player.y - boss.y);
+            if (dist < 45) { // Larger collision radius for mega boss
+                damagePlayer(player, boss.damage * 0.3);
+            }
+        }
+    });
+}
+
+// Function to create a drop element
+function createDrop(dropType) {
+    // Create the drop element
+    const drop = document.createElement('div');
+    drop.className = `drop ${dropType.color}`; // Assign color class based on drop type
+    drop.style.width = `${dropType.size}px`;
+    drop.style.height = `${dropType.size}px`;
+    drop.style.borderRadius = '50%';
+    drop.style.position = 'absolute';
+
+    // Random position on the map
+    const x = Math.random() * (window.innerWidth - dropType.size);
+    const y = Math.random() * (window.innerHeight - dropType.size);
+    drop.style.left = `${x}px`;
+    drop.style.top = `${y}px`;
+
+    // Add the drop to the document
+    document.body.appendChild(drop);
+    currentDrop = { element: drop, type: dropType, x, y };
+
+    // Remove drop if not collected within 20 seconds
+    setTimeout(() => {
+        if (currentDrop && currentDrop.element === drop) {
+            drop.remove();
+            currentDrop = null;
+        }
+    }, 20000);
+}
+
+
+// Function to trigger the explosion effect
+function createExplosion(x, y, radius) {
+    const explosion = document.createElement('div');
+    explosion.className = 'explosion';
+    explosion.style.position = 'absolute';
+    explosion.style.left = `${x - radius}px`;
+    explosion.style.top = `${y - radius}px`;
+    explosion.style.width = `${radius * 2}px`;
+    explosion.style.height = `${radius * 2}px`;
+    explosion.style.border = `2px solid red`;
+    explosion.style.borderRadius = '50%';
+    explosion.style.opacity = 0.5;
+    explosion.style.transition = 'transform 1s ease, opacity 1s ease';
+
+    document.body.appendChild(explosion);
+    setTimeout(() => {
+        explosion.style.transform = 'scale(1.5)';
+        explosion.style.opacity = 0;
+        setTimeout(() => explosion.remove(), 1000);
+    }, 100);
+
+    // Damage enemies within radius
+    enemies.forEach((enemy, index) => {
+        const dx = enemy.x - x;
+        const dy = enemy.y - y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < radius) {
+            enemy.element.remove();
+            enemies.splice(index, 1);
+            score += 10;
+            document.getElementById('score').textContent = 'Score: ' + score;
+        }
+    });
+}
+
+// Function to check if a player collected the drop
+function checkDropCollection() {
+    if (!currentDrop) return;
+
+    [player1, player2].forEach(player => {
+        // Check again if currentDrop exists to avoid null reference errors
+        if (!currentDrop) return;
+
+        const dx = player.x - currentDrop.x;
+        const dy = player.y - currentDrop.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < 20) { // Collection radius
+            currentDrop.type.apply(player);
+            currentDrop.element.remove();
+            currentDrop = null;
+        }
+    });
+}
+
+
+// Spawn drop at intervals
+function checkDropSpawn() {
+    const now = Date.now();
+    if (!currentDrop && now - lastDropSpawn >= DROP_SPAWN_INTERVAL) {
+        const randomDrop = drops[Math.floor(Math.random() * drops.length)];
+        createDrop(randomDrop);
+        lastDropSpawn = now; // Update last drop spawn time after a drop is created
+    }
+}
+
+// Attack pattern functions
+function createWaveAttack(boss) {
+    const wave = document.createElement('div');
+    wave.className = 'wave-attack';
+    wave.style.left = boss.x + 'px';
+    wave.style.top = boss.y + 'px';
+    document.body.appendChild(wave);
+
+    // Damage players in wave
+    const checkWaveDamage = setInterval(() => {
+        [player1, player2].forEach(player => {
+            if (!player.isDead) {
+                const dist = Math.hypot(player.x - boss.x, player.y - boss.y);
+                if (dist < 300) { // Wave damage radius
+                    damagePlayer(player, boss.damage * 0.2);
+                }
+            }
+        });
+    }, 200);
+
+    setTimeout(() => {
+        clearInterval(checkWaveDamage);
+        wave.remove();
+    }, 2000);
+}
+
+function createBulletRing(boss) {
+    const bulletCount = 12;
+    for (let i = 0; i < bulletCount; i++) {
+        const angle = (i / bulletCount) * Math.PI * 2;
+        const velocity = {
+            x: Math.cos(angle) * 3,
+            y: Math.sin(angle) * 3
+        };
+        
+        const bullet = document.createElement('div');
+        bullet.className = 'bullet-ring';
+        document.body.appendChild(bullet);
+
+        boss.bullets.push({
+            element: bullet,
+            x: boss.x,
+            y: boss.y,
+            vx: velocity.x,
+            vy: velocity.y
+        });
+    }
+}
+
+function fireBulletAtClosestPlayer(boss) {
+    const target = findClosestPlayer(boss);
+    if (!target) return;
+
+    const angle = Math.atan2(target.y - boss.y, target.x - boss.x);
+    const bullet = document.createElement('div');
+    bullet.className = 'bullet-ring';
+    document.body.appendChild(bullet);
+
+    boss.bullets.push({
+        element: bullet,
+        x: boss.x,
+        y: boss.y,
+        vx: Math.cos(angle) * 5,
+        vy: Math.sin(angle) * 5
+    });
+}
+
+function diagonalDash(boss) {
+    const target = findClosestPlayer(boss);
+    if (!target) return;
+
+    const angle = Math.atan2(target.y - boss.y, target.x - boss.x);
+    boss.dashVx = Math.cos(angle) * 10;
+    boss.dashVy = Math.sin(angle) * 10;
+    boss.isDashing = true;
+
+    setTimeout(() => {
+        boss.isDashing = false;
+    }, 1000);
+}
+
+// Helper functions
+function moveTowardsCenter(boss) {
+    const centerX = window.innerWidth / 2;
+    const centerY = window.innerHeight / 2;
+    const angle = Math.atan2(centerY - boss.y, centerX - boss.x);
+    boss.x += Math.cos(angle) * boss.speed;
+    boss.y += Math.sin(angle) * boss.speed;
+}
+
+function moveInCircle(boss) {
+    const centerX = window.innerWidth / 2;
+    const centerY = window.innerHeight / 2;
+    const radius = 100;
+    const speed = 0.02;
+    
+    boss.circleAngle = (boss.circleAngle || 0) + speed;
+    boss.x = centerX + Math.cos(boss.circleAngle) * radius;
+    boss.y = centerY + Math.sin(boss.circleAngle) * radius;
+}
+
+function chaseClosestPlayer(boss) {
+    const target = findClosestPlayer(boss);
+    if (!target) return;
+
+    const angle = Math.atan2(target.y - boss.y, target.x - boss.x);
+    boss.x += Math.cos(angle) * boss.speed;
+    boss.y += Math.sin(angle) * boss.speed;
+}
+
+function findClosestPlayer(boss) {
+    const dist1 = player1.isDead ? Infinity : Math.hypot(player1.x - boss.x, player1.y - boss.y);
+    const dist2 = player2.isDead ? Infinity : Math.hypot(player2.x - boss.x, player2.y - boss.y);
+    return dist1 < dist2 ? player1 : dist2 < Infinity ? player2 : null;
+}
+    
+    function updateGame() {
+        if (gameIsPaused) {
+            requestAnimationFrame(updateGame);
+            return;
+        }
+    
+        // Player 1 movement (WASD)
+        if (!player1.isDead) {
+            if (keys.w && player1.y > 0) player1.y -= player1.speed;
+            if (keys.s && player1.y < window.innerHeight - 20) player1.y += player1.speed;
+            if (keys.a && player1.x > 0) player1.x -= player1.speed;
+            if (keys.d && player1.x < window.innerWidth - 20) player1.x += player1.speed;
+        }
+    
+        // Player 2 movement (Arrow keys)
+        if (!player2.isDead) {
+            if (keys.ArrowUp && player2.y > 0) player2.y -= player2.speed;
+            if (keys.ArrowDown && player2.y < window.innerHeight - 20) player2.y += player2.speed;
+            if (keys.ArrowLeft && player2.x > 0) player2.x -= player2.speed;
+            if (keys.ArrowRight && player2.x < window.innerWidth - 20) player2.x += player2.speed;
+        }
+    
+        updatePosition(player1);
+        updatePosition(player2);
+    
+        updateOrbitalBullet(player1);
+        updateOrbitalBullet(player2);
+        updateHealingFields();
+        checkHealingFieldSpawn();
+        updateTurrets(player1);
+        updateTurrets(player2);
+        checkDropSpawn();
+        checkDropCollection();
+    
+        // Update shield and magnet visuals
+        [player1, player2].forEach(player => {
+            if (player.shieldElement && player.shieldHits > 0) {
+                player.shieldElement.style.left = (player.x - 10) + 'px';
+                player.shieldElement.style.top = (player.y - 10) + 'px';
+                player.shieldElement.style.display = 'block';
+            }
+            if (player.magnetElement) {
+                player.magnetElement.style.left = (player.x - player.magnetRange) + 'px';
+                player.magnetElement.style.top = (player.y - player.magnetRange) + 'px';
+                player.magnetElement.style.width = (player.magnetRange * 2) + 'px';
+                player.magnetElement.style.height = (player.magnetRange * 2) + 'px';
+            }
+        });
+    
+        shoot(player1);
+        shoot(player2);
+    
+        checkRevival();
+    
+        // Update bullets
+        for (let i = bullets.length - 1; i >= 0; i--) {
+            const bullet = bullets[i];
+            bullet.x += bullet.dx * bullet.speed;
+            bullet.y += bullet.dy * bullet.speed;
+            bullet.element.style.left = bullet.x + 'px';
+            bullet.element.style.top = bullet.y + 'px';
+    
+            if (bullet.x < 0 || bullet.x > window.innerWidth || bullet.y < 0 || bullet.y > window.innerHeight) {
+                bullet.element.remove();
+                bullets.splice(i, 1);
+            }
+        }
+    
+        // Spawn enemies
+        const now = Date.now();
+        if (now - lastSpawn > spawnRate) {
+    // Spawn boss at 2000 points initially or every 6000 points afterward
+    if ((score >= 2000 && lastBossSpawnScore === 0) || (score >= lastBossSpawnScore + 6000 && !boss)) {
+        boss = createBoss();
+        lastBossSpawnScore = score;
+    }
+
+    // Mega boss spawn at level intervals
+    if (currentLevel % 20 === 0 && !megaBoss) {
+        megaBoss = createMegaBoss();
+    }
+
+    // Calculate spawn rate based on score
+    const baseSpawnRate = 2000; // 2 seconds base rate
+    const scoreScaling = Math.pow(score / 10000, 0.5); // Much more gradual scaling
+    spawnRate = Math.max(100, baseSpawnRate / (1 + scoreScaling));
+
+    // Update spawn rate display
+    const spawnRatePercent = Math.min(2000, Math.max(100, spawnRate));
+    const percentageOfBase = ((2000 - spawnRatePercent) / (2000 - 100)) * 100;
+    document.getElementById('spawn-rate-display').textContent = 
+        Math.round(percentageOfBase) + '%';
+    
+    // Update enemy count display
+    document.getElementById('enemy-count-display').textContent = 
+        `${enemies.length}/${MAX_ENEMIES}`;
+
+    // Calculate how many enemies we need to spawn to maintain the limit
+    const enemiesNeeded = MAX_ENEMIES - enemies.length;
+    
+    if (enemiesNeeded > 0) {
+        // If we're below the limit, spawn up to 3 enemies at once
+        const spawnsThisRound = Math.min(enemiesNeeded, 3);
+        for (let i = 0; i < spawnsThisRound; i++) {
+            enemies.push(createEnemy());
+        }
+    } else {
+        // Even at max enemies, spawn one to replace any that might die soon
+        enemies.push(createEnemy());
+        
+        // Power up all enemies
+        const overflowScaling = 1 + (score / 800);
+        enemies.forEach(enemy => {
+            if (!enemy.powered) {
+                enemy.speed *= (1 + Math.min(0.6, overflowScaling / 8));
+                enemy.health *= (1 + Math.min(1.2, overflowScaling / 4));
+                enemy.maxHealth = enemy.health;
+                enemy.powered = true;
+                enemy.element.style.boxShadow = '0 0 10px rgba(255, 0, 0, 0.5)';
+            }
+        });
+    }
+    
+    lastSpawn = now;
+}
+
+// Update enemies
+for (let i = enemies.length - 1; i >= 0; i--) {
+    const enemy = enemies[i];
+
+    const dist1 = player1.isDead ? Infinity : Math.hypot(player1.x - enemy.x, player1.y - enemy.y);
+    const dist2 = player2.isDead ? Infinity : Math.hypot(player2.x - enemy.x, player2.y - enemy.y);
+
+    const closerDist = Math.min(dist1, dist2);
+    const closerPlayer = dist1 < dist2 ? player1 : player2;
+
+    if (closerDist === Infinity) continue;
+
+    if (closerDist < 20) {
+        damagePlayer(closerPlayer, 0.5);
+    }
+
+    const angle = Math.atan2(closerPlayer.y - enemy.y, closerPlayer.x - enemy.x);
+    enemy.x += Math.cos(angle) * enemy.speed;
+    enemy.y += Math.sin(angle) * enemy.speed;
+
+    enemy.element.style.left = enemy.x + 'px';
+    enemy.element.style.top = enemy.y + 'px';
+
+    // Bullet collision with enemies
+for (let j = bullets.length - 1; j >= 0; j--) {
+    const bullet = bullets[j];
+    const dx = bullet.x - enemy.x;
+    const dy = bullet.y - enemy.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance < 15) {
+        bullet.enemiesHit = bullet.enemiesHit || 0;
+        enemy.health -= bullet.damage;
+        updateHealthBar(enemy);
+        bullet.enemiesHit++;
+
+        // Implement Omnivamp lifesteal effect
+        const bulletOwner = bullet.fromPlayer === 1 ? player1 : player2;
+        if (bulletOwner.lifesteal && !bulletOwner.isDead) {
+            const lifestealAmount = bullet.damage * bulletOwner.lifesteal;
+            bulletOwner.health = Math.min(PLAYER_MAX_HEALTH, bulletOwner.health + lifestealAmount);
+            updateHealthBar(bulletOwner);
+        }
+
+        if (enemy.health <= 0) {
+            xpOrbs.push(createXPOrb(enemy.x, enemy.y));
+            enemy.element.remove();
+            enemies.splice(i, 1);
+            score += 15;
+            document.getElementById('score').textContent = 'Score: ' + score;
+        }
+
+        if (!bulletOwner.bulletPhase || bullet.enemiesHit > bulletOwner.bulletPhase) {
+            bullet.element.remove();
+            bullets.splice(j, 1);
+        }
+        break;
+        }
+    }
+}
+
+// Update regular boss
+if (boss) {
+    updateBoss(boss);
+    const bossPosition = { x: boss.x, y: boss.y, maxHealth: boss.maxHealth };
+
+    for (let i = bullets.length - 1; i >= 0; i--) {
+        const bullet = bullets[i];
+        if (!boss) break; // Exit if boss was destroyed
+
+        const dx = bullet.x - boss.x;
+        const dy = bullet.y - boss.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < 30) {
+            bullet.element.remove();
+            bullets.splice(i, 1);
+
+            boss.health -= bullet.damage;
+            updateHealthBar(boss);
+
+            if (boss.health <= 0) {
+                boss.element.remove();
+                if (boss.laser) boss.laser.remove();
+                
+                // Use stored position for XP orbs
+                const numOrbs = Math.floor(bossPosition.maxHealth / 10);
+                for (let j = 0; j < numOrbs; j++) {
+                    xpOrbs.push(createXPOrb(
+                        bossPosition.x + (Math.random() - 0.5) * 40,
+                        bossPosition.y + (Math.random() - 0.5) * 40
+                    ));
+                }
+                
+                score += 100;
+                document.getElementById('score').textContent = 'Score: ' + score;
+                boss = null;
+            }
+        }
+    }
+}
+
+// Update mega boss
+if (megaBoss) {
+    updateMegaBoss(megaBoss);
+    const megaBossPosition = { x: megaBoss.x, y: megaBoss.y };
+
+    for (let i = bullets.length - 1; i >= 0; i--) {
+        const bullet = bullets[i];
+        if (!megaBoss) break; // Exit if mega boss was destroyed
+
+        const dx = bullet.x - megaBoss.x;
+        const dy = bullet.y - megaBoss.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < 40) {
+            bullet.element.remove();
+            bullets.splice(i, 1);
+
+            megaBoss.health -= bullet.damage;
+            updateHealthBar(megaBoss);
+
+            if (megaBoss.health <= 0) {
+                megaBoss.element.remove();
+                
+                // Use stored position for XP orbs
+                for (let j = 0; j < 20; j++) {
+                    xpOrbs.push(createXPOrb(
+                        megaBossPosition.x + (Math.random() - 0.5) * 80,
+                        megaBossPosition.y + (Math.random() - 0.5) * 80
+                    ));
+                }
+                
+                score += 200;
+                document.getElementById('score').textContent = 'Score: ' + score;
+                megaBoss = null;
+            }
+        }
+    }
+}
+    
+        checkOrbCollection();
+        requestAnimationFrame(updateGame);
+    }
+    
+    // Initialize game
+    document.addEventListener('DOMContentLoaded', () => {
+        updateXPDisplay();
+        updatePosition(player1);
+        updatePosition(player2);
+        updateHealthBar(player1);
+        updateHealthBar(player2);
+        updateGame();
+    });
+    </script>
+    </body>
+    </html>
